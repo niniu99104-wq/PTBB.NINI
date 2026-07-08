@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>豆媽選品｜團購出貨單</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    margin: 0; background: #f6f3ee; color: #4a4038; line-height: 1.5; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.25rem; text-align: center; margin: 8px 0 4px; color: #8a7355; }
+  .sub { text-align: center; font-size: .78rem; color: #b0a48f; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 16px;
+    border: 1px solid #ece5da; }
+  .card h2 { font-size: .98rem; margin: 0 0 12px; color: #8a7355; display:flex; justify-content:space-between; align-items:center; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: .8rem; color: #999; margin-bottom: 4px; }
+  .field input, .field select { width: 100%; padding: 10px 12px; font-size: .95rem;
+    border: 1px solid #e2ddd4; border-radius: 9px; background: #faf9f6; }
+  .field input:focus, .field select:focus { outline: none; border-color: #c3b193; background: #fff; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .note { font-size: .78rem; color: #b0a48f; margin: -4px 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { padding: 8px 5px; border-bottom: 1px solid #f0ebe2; text-align: left; vertical-align: middle; }
+  th { background: #f2ede4; color: #8a7355; font-size: .76rem; white-space: nowrap; }
+  th.c, td.c { text-align: center; }
+  .row-input { width: 100%; padding: 7px 8px; border: 1px solid #e2ddd4; border-radius: 7px;
+    font-size: .88rem; background: #faf9f6; }
+  .row-input:focus { outline: none; border-color: #c3b193; background: #fff; }
+  .qty { width: 60px; text-align: center; }
+  .del { background: none; border: none; color: #cbb; font-size: 1.1rem; cursor: pointer; padding: 4px 8px; }
+  .del:active { color: #c0392b; }
+  .idx { color: #b0a48f; font-size: .8rem; text-align: center; width: 30px; }
+  .add-btn { width: 100%; padding: 11px; margin-top: 10px; border: 1px dashed #c3b193;
+    border-radius: 9px; background: #fbf8f2; color: #8a7355; font-size: .9rem; cursor: pointer; }
+  .add-btn:active { background: #f2ede4; }
+  .btn { display: block; width: 100%; padding: 15px; margin-top: 8px; border: none;
+    border-radius: 12px; background: #b08968; color: #fff; font-size: 1.05rem; font-weight: 600; cursor: pointer; }
+  .btn:active { background: #967151; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  th.brand, td.brand { min-width: 90px; }
+  th.name, td.name { min-width: 140px; }
+  th.spec, td.spec { min-width: 110px; }
+  .mini-btn { font-size: .78rem; font-weight: 500; color: #b08968; background: #f7f1e8;
+    border: 1px solid #e2d6c2; border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+  .mini-btn:active { background: #ece0cd; }
+  /* modal */
+  .overlay { position: fixed; inset: 0; background: rgba(60,50,40,.4); display: none;
+    align-items: flex-end; justify-content: center; z-index: 50; }
+  .overlay.show { display: flex; }
+  .sheet { background: #fff; width: 100%; max-width: 760px; max-height: 80vh; overflow-y: auto;
+    border-radius: 18px 18px 0 0; padding: 18px 16px 24px; }
+  .sheet h3 { margin: 0 0 4px; font-size: 1.05rem; color: #8a7355; }
+  .sheet .hint { font-size: .78rem; color: #b0a48f; margin-bottom: 14px; }
+  .fav { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #f0ebe2; }
+  .fav input[type=checkbox] { width: 20px; height: 20px; accent-color: #b08968; flex-shrink: 0; }
+  .fav .info { flex: 1; min-width: 0; }
+  .fav .info .n { font-weight: 600; font-size: .92rem; }
+  .fav .info .s { font-size: .76rem; color: #b0a48f; }
+  .fav .rm { background: none; border: none; color: #cbb; font-size: 1rem; cursor: pointer; }
+  .empty { text-align: center; color: #c3b193; padding: 30px 0; font-size: .88rem; }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .sheet-actions button { flex: 1; padding: 13px; border-radius: 11px; font-size: .95rem;
+    font-weight: 600; cursor: pointer; border: none; }
+  .load { background: #b08968; color: #fff; }
+  .close { background: #f2ede4; color: #8a7355; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>豆媽選品｜Peanutbebe.</h1>
+  <div class="sub">團購出貨單</div>
+
+  <div class="card">
+    <h2>會員資料</h2>
+    <div class="grid2">
+      <div class="field"><label>訂購日期</label><input type="date" id="orderDate"></div>
+      <div class="field"><label>訂單編號</label><input id="orderNo"></div>
+      <div class="field"><label>訂購人</label><input id="buyer"></div>
+      <div class="field"><label>會員編號</label><input id="memberNo"></div>
+      <div class="field"><label>收件人</label><input id="receiver"></div>
+      <div class="field"><label>收件人電話</label><input id="rphone" inputmode="numeric"></div>
+    </div>
+    <div class="field"><label>送貨地址</label><input id="address"></div>
+  </div>
+
+  <div class="card">
+    <h2>出貨明細
+      <button class="mini-btn" onclick="openFav()">📦 載入常用商品</button>
+    </h2>
+    <div class="note">※僅為出貨明細，商品單價及訂單總金額請參考結帳明細。所有欄位皆可留空。</div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="c">#</th><th class="brand">品牌名</th><th class="name">產品名</th>
+            <th class="spec">規格</th><th class="c">數量</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="itemBody"></tbody>
+      </table>
+    </div>
+    <button class="add-btn" onclick="addRow()">＋ 新增品項</button>
+  </div>
+
+  <button class="btn" onclick="exportExcel()">📥 匯出 Excel 出貨單</button>
+</div>
+
+<!-- 常用商品 modal -->
+<div class="overlay" id="favOverlay">
+  <div class="sheet">
+    <h3>常用商品</h3>
+    <div class="hint">勾選要帶入的品項；填過的商品會自動記住。</div>
+    <div id="favList"></div>
+    <div class="sheet-actions">
+      <button class="close" onclick="closeFav()">關閉</button>
+      <button class="load" onclick="loadFav()">帶入所選</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const FAV_KEY = 'peanutbebe_fav_items';
+const body = document.getElementById('itemBody');
+
+function loadFavs(){ try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch(e){ return []; } }
+function saveFavs(list){ localStorage.setItem(FAV_KEY, JSON.stringify(list)); }
+
+function rememberItem(brand, name, spec){
+  name = (name||'').trim();
+  if(!name) return;
+  const list = loadFavs();
+  const key = (brand||'')+'|'+name+'|'+(spec||'');
+  if(list.some(x => (x.brand||'')+'|'+x.name+'|'+(x.spec||'') === key)) return;
+  list.push({brand:(brand||'').trim(), name, spec:(spec||'').trim()});
+  saveFavs(list);
+}
+
+function addRow(data={}){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="idx"></td>
+    <td class="brand"><input class="row-input f-brand" value="${data.brand||''}"></td>
+    <td class="name"><input class="row-input f-name" value="${data.name||''}"></td>
+    <td class="spec"><input class="row-input f-spec" value="${data.spec||''}"></td>
+    <td class="c"><input class="row-input qty f-qty" inputmode="numeric" value="${data.qty||''}"></td>
+    <td><button class="del" onclick="delRow(this)">✕</button></td>`;
+  // 失焦時記住品項
+  const b = tr.querySelector('.f-brand'), n = tr.querySelector('.f-name'), s = tr.querySelector('.f-spec');
+  n.addEventListener('blur', ()=> rememberItem(b.value, n.value, s.value));
+  body.appendChild(tr);
+  renum();
+}
+function delRow(btn){ btn.closest('tr').remove(); renum(); }
+function renum(){ [...body.children].forEach((tr,i)=> tr.querySelector('.idx').textContent = i+1); }
+
+// ---- 常用商品 modal ----
+function openFav(){
+  const list = loadFavs();
+  const el = document.getElementById('favList');
+  if(!list.length){
+    el.innerHTML = '<div class="empty">尚未有常用商品。<br>在下方明細填入產品名後就會自動記住。</div>';
+  } else {
+    el.innerHTML = list.map((it,i)=>`
+      <label class="fav">
+        <input type="checkbox" data-i="${i}">
+        <span class="info"><span class="n">${it.name}</span>
+          <span class="s">${[it.brand,it.spec].filter(Boolean).join('｜')||'—'}</span></span>
+        <button class="rm" onclick="rmFav(event,${i})">🗑</button>
+      </label>`).join('');
+  }
+  document.getElementById('favOverlay').classList.add('show');
+}
+function closeFav(){ document.getElementById('favOverlay').classList.remove('show'); }
+function rmFav(e, i){
+  e.preventDefault(); e.stopPropagation();
+  const list = loadFavs(); list.splice(i,1); saveFavs(list); openFav();
+}
+function loadFav(){
+  const list = loadFavs();
+  const checks = document.querySelectorAll('#favList input[type=checkbox]:checked');
+  checks.forEach(c => { const it = list[+c.dataset.i]; addRow({brand:it.brand, name:it.name, spec:it.spec}); });
+  closeFav();
+}
+
+const v = id => document.getElementById(id).value;
+
+function exportExcel(){
+  const rows = [];
+  rows.push(["豆媽選品｜Peanutbebe. 團購出貨單"]);
+  rows.push([]);
+  rows.push(["會員資料"]);
+  rows.push(["訂購日期", v('orderDate'), "", "訂單編號", v('orderNo')]);
+  rows.push(["訂購人", v('buyer'), "", "會員編號", v('memberNo')]);
+  rows.push(["收件人", v('receiver'), "", "收件人電話", v('rphone')]);
+  rows.push(["送貨地址", v('address')]);
+  rows.push([]);
+  rows.push(["※僅為出貨明細，商品單價及訂單總金額請參考結帳明細。"]);
+  rows.push(["序號","品牌名","產品名","規格","訂購數量"]);
+
+  [...body.children].forEach((tr,i)=>{
+    rows.push([
+      i+1,
+      tr.querySelector('.f-brand').value,
+      tr.querySelector('.f-name').value,
+      tr.querySelector('.f-spec').value,
+      tr.querySelector('.f-qty').value
+    ]);
+    // 匯出時也順手記住品項
+    rememberItem(tr.querySelector('.f-brand').value, tr.querySelector('.f-name').value, tr.querySelector('.f-spec').value);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:6},{wch:12},{wch:22},{wch:16},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "訂購單");
+
+  const buyer = v('buyer') || "出貨單";
+  const date = v('orderDate') || new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `豆媽選品出貨單_${buyer}_${date}.xlsx`);
+}
+
+document.getElementById('orderDate').value = new Date().toISOString().slice(0,10);
+for(let i=0;i<5;i++) addRow();
+</script>
+</body>
+</html>
